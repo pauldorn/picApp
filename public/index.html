@@ -1,0 +1,50 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" type="text/css" href="http://ajax.googleapis.com/ajax/libs/dojo/1.6.1/dojo/resources/dojo.css">
+<link rel="stylesheet" type="text/css" href="http://ajax.googleapis.com/ajax/libs/dojo/1.6.1/dijit/themes/claro/claro.css">
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/dojo/1.6.1/dojo/dojo.xd.js"></script>
+<script type="text/javascript">
+dojo.require("dijit.form.ValidationTextBox");
+dojo.require("dijit.form.Select");
+dojo.require("dijit.layout.ContentPane");
+dojo.require("dojox.xml.parser");
+dojo.require("dijit.tree.TreeStoreModel");
+dojo.require("dijit.Tree");
+dojo.require("dijit.form.Button");
+dojo.addOnLoad(function(){
+	dojo.byId("loadMeter").value = 5;
+	new dijit.layout.ContentPane({id:"installedModulesDiv", 
+		style:{background:"#777"}}).placeAt(dojo.body());
+	new dijit.layout.ContentPane({id:"formDiv",
+		style:{background:"#eee"}}).placeAt(dojo.body());
+	// kick off with getInstalledModules...
+	getInstalledModules();
+	dojo.byId("loadMeter").value = 10;
+});
+</script>
+<style type="text/css" >
+.inputRow{
+	width:100%;
+}
+.fieldLabel{
+	width:200px;
+	max-width:200px;
+	font-weight:bold;
+	color:orange;
+}
+.TableContainer{
+	border:1px solid #000;
+	padding:0px;
+}
+.TableContainer .TableHeader{
+	padding:.2em;
+	background:#000;
+	color:#fff;
+}
+</style>
+</head>
+<body class="claro" style="background:#deebda; width:80em; margin:auto; ">
+<div style="position:absolute; bottom:10px; left:18px"><meter style="width:15em" id="loadMeter" value="0" min="0" max="10">0 out of 10</meter></div>
+</body>
+</html>
