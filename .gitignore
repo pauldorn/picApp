@@ -1,3 +1,9 @@
 .project
 .settings
 node_modules/
+.bash_history
+.bash_profile
+.bash_logout
+.bashrc
+.ssh
+.viminfo
