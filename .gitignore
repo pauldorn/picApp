@@ -7,3 +7,4 @@ node_modules/
 .bashrc
 .ssh
 .viminfo
+.gitconfig
