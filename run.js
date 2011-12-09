@@ -13,7 +13,17 @@ var formidable = require("formidable");
 
 console.log("Starting up.");
 console.log("Loading old data");
-var oldData = require(path.join(__dirname, "picApp/result.js"));
+var oldData = require(path.join(__dirname, "result.bin"));
+console.log("Building tag list");
+var tagNames = [];
+for(var tagName in oldData.tags){
+	tagNames.push(tagName);
+}
+console.log("Building set list");
+var setNames = [];
+for(var setName in oldData.sets){
+	setNames.push(setName);
+}
 console.log("Old Data is loaded");
 
 connect(
@@ -42,14 +52,15 @@ connect(
 				rs.pipe(res);
 			}),
 			app.get('/tagList', function(req, res){
-	    			res.write('{}&&{ "tags":');
-	    			var tagNames = [];
-	    				for(var tagName in oldData.tags){
-	    					tagNames.push(tagName);
-	    				}
-	    			res.write( JSON.stringify(tagNames));
-	    			res.end("}");
-	    		});
+    			res.write('{}&&{ "tags":');
+    			res.write( JSON.stringify(tagNames));
+    			res.end("}");
+    		});
+			app.get('/setList', function(req, res){
+    			res.write('{}&&{ "sets":');
+    			res.write( JSON.stringify(setNames));
+    			res.end("}");
+    		});
 	    		app.get('/tags/*', function(req, res){
 	    			var urlInfo = url.parse(req.url);
 	    			var anyCaseTags = decodeURIComponent(urlInfo.path.substring(6)).split(/:/);
