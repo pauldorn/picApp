@@ -6,21 +6,111 @@
 <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/dojo/1.6.1/dojo/dojo.xd.js"></script>
 <script type="text/javascript">
 dojo.require("dijit.form.ValidationTextBox");
+dojo.require("dijit.form.CheckBox");
 dojo.require("dijit.form.Select");
 dojo.require("dijit.layout.ContentPane");
 dojo.require("dojox.xml.parser");
 dojo.require("dijit.tree.TreeStoreModel");
 dojo.require("dijit.Tree");
 dojo.require("dijit.form.Button");
+var activeTags = {};
+var loadImagesAction = null;
+var thumbPane = null;
+
+function loadQueriedTags(response){
+	console.log("Tagged Images", response);
+	var inDom = dojo.query(".tagThumbs");
+	var panesInDom = {};
+	dojo.forEach(inDom, function(tagDom){
+		var paneFromDom = dijit.byId(tagDom.id);
+		if(typeof(response[paneFromDom.tag])=='undefined'){
+			// remove the pane from dom
+			paneFromDom.domNode.parentNode.removeChild(paneFromDom.domNode);
+			try{
+				paneFromDom.destroyRecursive();
+			}catch(e){
+				console.log("Error", e);
+			}
+		}else{
+			panesInDom[paneFromDom.tag] = paneFromDom;
+		}
+	});
+	for(var tag in response){
+		if(typeof(panesInDom[tag])!='undefined') continue; // already there... Go on.
+		var tagPane = new dijit.layout.ContentPane({style:{ "float":"left", margin:"auto"}});
+		tagPane.tag = tag;
+		dojo.addClass(tagPane.domNode, "tagThumbs");
+		tagPane.placeAt(thumbPane.domNode);
+		var tagLabelPane = new dijit.layout.ContentPane({ content: tag, style:{ "float":"left", margin:"auto"}});
+		tagLabelPane.placeAt(tagPane.domNode);
+		dojo.forEach(response[tag], function(imageInfo){
+			var imagePane = new dijit.layout.ContentPane({ style:{ width:"150px", "float":"left"}, content: '<img src="/storage/thumbs/' + imageInfo.hash + '" width="150px" />'});
+			imagePane.placeAt(tagPane.domNode);
+		});
+	}
+	loadImagesAction = null;
+}
+
+function loadTaggedImages(){
+	var queryTags = [];
+	// cancel previous fill
+	//if(loadImagesAction) loadImagesAction.cancel();
+	//thumbPane.domNode.innerHTML = '';
+	for(var tag in activeTags){
+		queryTags.push(tag);
+	}
+	if(queryTags.length == 0){
+		loadQueriedTags({});
+	}else{
+		var imageListXhr = {
+				url:'tags/' + queryTags.join(':'),
+				handleAs: 'json',
+				load: loadQueriedTags
+			};
+		loadImagesAction = dojo.xhrGet(imageListXhr);
+	}
+}
+
+function populateTagList(){
+	
+	var tagListXhr = { 
+		url: 'tagList', 
+		handleAs:'json',
+		load: function(response){
+			var tags = response.tags.sort();
+			dojo.forEach(tags, function(tagName){
+				var pane = new dijit.layout.ContentPane({ style:{ "float":"left"}});
+				pane.placeAt(dojo.byId('tagList'));
+				var label = new dijit.layout.ContentPane({ style:{ width:"10em", "float":"left", overflow:"hidden", "text-alignment":"right"}, content: tagName});
+				label.placeAt(pane.domNode);
+				(function(){
+					var tagPane = pane;
+					var checkTag = tagName;
+					var box = new dijit.form.CheckBox({
+						style:{"float":"left"},
+						onChange: function(tagInUse){
+							if(tagInUse){
+								tagPane.placeAt(dojo.byId('tagsInUse'));
+								activeTags[checkTag] = tagInUse;
+								console.log("Active tags:", checkTag, activeTags);
+							}else{
+								tagPane.placeAt(dojo.byId('tagList'));
+								delete activeTags[checkTag];
+							}
+							loadTaggedImages();
+						}
+					});
+					box.placeAt(pane.domNode);
+				}());
+			});
+		} };
+	dojo.xhrGet( tagListXhr);
+
+}
+
 dojo.addOnLoad(function(){
-	dojo.byId("loadMeter").value = 5;
-	new dijit.layout.ContentPane({id:"installedModulesDiv", 
-		style:{background:"#777"}}).placeAt(dojo.body());
-	new dijit.layout.ContentPane({id:"formDiv",
-		style:{background:"#eee"}}).placeAt(dojo.body());
-	// kick off with getInstalledModules...
-	getInstalledModules();
-	dojo.byId("loadMeter").value = 10;
+	thumbPane = new dijit.layout.ContentPane({}, dojo.byId('thumbs'));
+	populateTagList();
 });
 </script>
 <style type="text/css" >
@@ -44,7 +134,14 @@ dojo.addOnLoad(function(){
 }
 </style>
 </head>
-<body class="claro" style="background:#deebda; width:80em; margin:auto; ">
-<div style="position:absolute; bottom:10px; left:18px"><meter style="width:15em" id="loadMeter" value="0" min="0" max="10">0 out of 10</meter></div>
+<body class="claro" style="background:#deebda; margin-left:5em; margin-right:5em ">
+<div id="start">Loading...</div>
+<div style="float:left; height:80%; width:20%; maxWidth:20%; overflow-y:scroll; overflow-x:hidden" id="tagList" ></div>
+<div style="float:left; height:auto; width:80%">
+	<div style="float:left; width:70%" id="tagsInUse">
+		<div style="float:left; width:70%">Tags Showing</div>
+	</div>
+	<div style="float:left; width:70%" id="thumbs"></div>
+</div>
 </body>
 </html>
