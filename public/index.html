@@ -1,147 +1,634 @@
 <html>
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<link rel="stylesheet" type="text/css" href="http://ajax.googleapis.com/ajax/libs/dojo/1.6.1/dojo/resources/dojo.css">
-<link rel="stylesheet" type="text/css" href="http://ajax.googleapis.com/ajax/libs/dojo/1.6.1/dijit/themes/claro/claro.css">
-<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/dojo/1.6.1/dojo/dojo.xd.js"></script>
+	<head>
+		<title>Where Everything Is! NSFW</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<link rel="stylesheet" type="text/css" href="http://ajax.googleapis.com/ajax/libs/dojo/1.7.0/dojo/resources/dojo.css">
+		<link rel="stylesheet" type="text/css" href="http://ajax.googleapis.com/ajax/libs/dojo/1.7.0/dijit/themes/claro/claro.css">
 <script type="text/javascript">
-dojo.require("dijit.form.ValidationTextBox");
-dojo.require("dijit.form.CheckBox");
-dojo.require("dijit.form.Select");
-dojo.require("dijit.layout.ContentPane");
-dojo.require("dojox.xml.parser");
-dojo.require("dijit.tree.TreeStoreModel");
-dojo.require("dijit.Tree");
-dojo.require("dijit.form.Button");
-var activeTags = {};
-var loadImagesAction = null;
-var thumbPane = null;
+</script>
+		<script src="http://ajax.googleapis.com/ajax/libs/dojo/1.7.0/dojo/dojo.js" type="text/javascript"></script>
+		<script src="http://ajax.googleapis.com/ajax/libs/dojo/1.7.0/dijit/dijit-all.js" type="text/javascript"></script>
+		<script type="text/javascript" src="http://www.google.com/recaptcha/api/js/recaptcha_ajax.js"></script>
 
-function loadQueriedTags(response){
-	console.log("Tagged Images", response);
-	var inDom = dojo.query(".tagThumbs");
-	var panesInDom = {};
-	dojo.forEach(inDom, function(tagDom){
-		var paneFromDom = dijit.byId(tagDom.id);
-		if(typeof(response[paneFromDom.tag])=='undefined'){
-			// remove the pane from dom
-			paneFromDom.domNode.parentNode.removeChild(paneFromDom.domNode);
-			try{
-				paneFromDom.destroyRecursive();
-			}catch(e){
-				console.log("Error", e);
-			}
-		}else{
-			panesInDom[paneFromDom.tag] = paneFromDom;
-		}
-	});
-	for(var tag in response){
-		if(typeof(panesInDom[tag])!='undefined') continue; // already there... Go on.
-		var tagPane = new dijit.layout.ContentPane({style:{ "float":"left", margin:"auto"}});
-		tagPane.tag = tag;
-		dojo.addClass(tagPane.domNode, "tagThumbs");
-		tagPane.placeAt(thumbPane.domNode);
-		var tagLabelPane = new dijit.layout.ContentPane({ content: tag, style:{ "float":"left", margin:"auto"}});
-		tagLabelPane.placeAt(tagPane.domNode);
-		dojo.forEach(response[tag], function(imageInfo){
-			var imagePane = new dijit.layout.ContentPane({ style:{ width:"150px", "float":"left"}, content: '<img src="/storage/thumbs/' + imageInfo.hash + '" width="150px" />'});
-			imagePane.placeAt(tagPane.domNode);
-		});
-	}
-	loadImagesAction = null;
-}
+		<script type="text/javascript">
+			//dojo.require("dojox.dtl.filter.strings");
+			dojo.require("dojo.data.ItemFileReadStore");
+			dojo.require("dijit.form.ComboBox");
+			dojo.require("dijit.form.RadioButton");
+			dojo.require("dijit.form.ValidationTextBox");
+			dojo.require("dijit.form.CheckBox");
+			dojo.require("dijit.form.FilteringSelect");
+			dojo.require("dijit.layout.ContentPane");
+			dojo.require("dojox.xml.parser");
+			dojo.require("dijit.tree.TreeStoreModel");
+			dojo.require("dijit.Tree");
+			dojo.require("dijit.form.Button");
 
-function loadTaggedImages(){
-	var queryTags = [];
-	// cancel previous fill
-	//if(loadImagesAction) loadImagesAction.cancel();
-	//thumbPane.domNode.innerHTML = '';
-	for(var tag in activeTags){
-		queryTags.push(tag);
-	}
-	if(queryTags.length == 0){
-		loadQueriedTags({});
-	}else{
-		var imageListXhr = {
-				url:'tags/' + queryTags.join(':'),
-				handleAs: 'json',
-				load: loadQueriedTags
-			};
-		loadImagesAction = dojo.xhrGet(imageListXhr);
+
+var tagList = false;
+var setList = false;
+var tagContents = {};
+var setContents = {};
+var loginData = { loggedIn: false };
+var waiting = 0;
+
+function startWaiting(){
+	waiting ++;
+	dojo.addClass(dojo.body(), 'waiting');
+} 
+
+function stopWaiting(){
+	waiting --;
+	if(waiting == 0){
+		dojo.removeClass(dojo.body(), 'waiting');
 	}
 }
 
 function populateTagList(){
-	
-	var tagListXhr = { 
-		url: 'tagList', 
+
+	var tagListXhr = { url: 'tagList', 
 		handleAs:'json',
 		load: function(response){
-			var tags = response.tags.sort();
-			dojo.forEach(tags, function(tagName){
-				var pane = new dijit.layout.ContentPane({ style:{ "float":"left"}});
-				pane.placeAt(dojo.byId('tagList'));
-				var label = new dijit.layout.ContentPane({ style:{ width:"10em", "float":"left", overflow:"hidden", "text-alignment":"right"}, content: tagName});
-				label.placeAt(pane.domNode);
-				(function(){
-					var tagPane = pane;
-					var checkTag = tagName;
-					var box = new dijit.form.CheckBox({
-						style:{"float":"left"},
-						onChange: function(tagInUse){
-							if(tagInUse){
-								tagPane.placeAt(dojo.byId('tagsInUse'));
-								activeTags[checkTag] = tagInUse;
-								console.log("Active tags:", checkTag, activeTags);
-							}else{
-								tagPane.placeAt(dojo.byId('tagList'));
-								delete activeTags[checkTag];
-							}
-							loadTaggedImages();
-						}
-					});
-					box.placeAt(pane.domNode);
-				}());
-			});
-		} };
+			tagList = response.tags.sort(function(a, b){ 
+					if( a.name == b.name) return 0; 
+					return (a.name < b.name)?-1:1; });
+			populateSetList();
+			stopWaiting();
+		},
+		error: function(error){
+			stopWaiting();
+			console.error("An error occured communicating with the server.", error);
+		}};
+	startWaiting();
 	dojo.xhrGet( tagListXhr);
+	
+}
 
+function populateSetList(){
+	
+	var setListXhr = { url: 'setList', 
+		handleAs:'json',
+		load: function(response){
+			setList = response.sets.sort(function(a, b){ 
+					if( a.name == b.name) return 0; 
+					return (a.name < b.name)?-1:1; });
+//			console.log(dojo.toJson(setList));
+			buildTagAndSetFilters();
+			stopWaiting();
+		},
+		error: function(error){
+			stopWaiting();
+			console.error("An error occured communicating with the server.", error);
+		} };
+	startWaiting();
+	dojo.xhrGet( setListXhr);
+
+}
+//var setImageData = false;
+//var tagImageData = false;
+
+function showSetImageByOffset(setName, offset){
+	showImage(setContents[setName][offset]);
+}
+
+function showTagImageByOffset(tagName, offset){
+	showImage(tagContents[tagName][offset]);
+}
+
+function getSetDetail(setName, setDetailListener){
+	if(setContents[setName]){
+		setDetailListener(setContents[setName]);
+		return;
+	}
+	var encodedSetName = encodeURIComponent(setName);
+	dijit.byId('setImages').domNode.innerHTML = '';
+		var Xhr = { url: 'setInfo/' + encodedSetName, 
+			handleAs:'json',
+			load: function(response){
+				setContents[setName] = response;
+				setDetailListener( response);
+				stopWaiting();
+				//console.log(response);
+			},
+			error: function(error){
+				stopWaiting();
+				console.error("An error occured communicating with the server.", error);
+			} };
+		startWaiting();
+		dojo.xhrGet( Xhr);	
+}
+
+var randomExif = false;
+
+function showExif(exifData){
+	if(randomExif) randomExif.destroyRecursive();
+	randomExif = new dijit.layout.ContentPane({ content: '<pre>' + exifData + '</pre>'});
+	dojo.style(randomExif.domNode, { "float":"left", "clear":"bottom", "margin-left":"5em", "overflow-y":"scroll", "height":"6em"});
+	randomExif.placeAt(dijit.byId('exifContainer').domNode);
+	dijit.byId("exifParent").layout();
+}
+
+function getExif(imageNumber){
+	var Xhr = { url: '/exif/'+imageNumber, 
+		handleAs:'text',
+		load: function(response){
+			showExif(response);
+			stopWaiting();
+		},
+		error: function(error){
+			stopWaiting();
+			console.error("An error occured communicating with the server.", error);
+		} };
+	startWaiting();
+	dojo.xhrGet( Xhr);
+}
+
+var tagPane = false;
+var setPane = false;
+
+function showTags(tags){
+	var tagsParent = dijit.byId('tagsParent');
+	if(tagPane) tagPane.destroyRecursive();
+	paneString = '';
+	dojo.forEach(tags, function(tagName){
+		var encodedTagName = encodeURIComponent(tagName);
+		//tagName = tagName.replace(/\//, '%2F');
+		var tagUrl = ' <a href="#' + encodedTagName + '" onclick="showImageTag(\'' + tagName + '\'); return false;">' + tagName + '</a>';
+		paneString += tagUrl;
+	});
+	tagPane = new dijit.layout.ContentPane({content: paneString});
+	tagPane.placeAt(tagsParent.domNode);
+}
+var imageLoadList = [];
+var timeoutList = {};
+var currentlyLoading = 0;
+
+function loadNextImage(){
+	var imageToLoad = imageLoadList.shift();
+	if(typeof imageToLoad != 'function') return;
+	timeoutList[setTimeout(imageToLoad, 10)] = true;
+}
+function clearImageLoadList(){
+	currentlyLoading ++;
+	imageLoadList = [];
+	for(var timeout in timeoutList) clearTimeout(timeout);
+}
+function showImageSet(setName){
+	clearImageLoadList();
+	try{ dijit.byId('allTabs').removeChild(setBody); }catch(e){ };
+	try{ dijit.byId('allTabs').addChild(setBody); }catch(e){ };
+	try{ dijit.byId('allTabs').selectChild(setBody); }catch(e){ };
+	dojo.byId('setImages').innerHTML = 'Loading...';
+	setBody.set('title', 'Set: ' + setName);
+	getSetDetail(setName, function(setDetail){
+		//setImageData = setDetail;
+		setContents[setName]= setDetail;
+		var imageOffset = 0;
+		var loading = currentlyLoading ;
+		dojo.forEach(setDetail, function(image){
+			imageLoadList.push(function(){
+				if(loading != currentlyLoading){
+					console.log("Cowardly not loading:", loading, currentlyLoading);
+					return;
+				}
+				var imageTag = getImageContentFromImageData(image, [125,125]);
+				var imageContent = '<a href="#'+ setName+':'+image.imageNum+'" onclick="showSetImageByOffset(\''+ setName + '\', \'' + imageOffset++ + '\'); return false;">' + imageTag + '</a>';
+				//var imagePane = new dijit.layout.ContentPane({ style:{ 'text-align':'center', 'border-width':'1px', 'border-style':'solid', 'border-color':'lightblue', height:'125px', width:'125px', 'float':'left'}, content: imageContent });
+				var imagePane = new dijit.layout.ContentPane({ style:{ 'text-align':'center', height:'127px', width:'127px', 'float':'left'}, content: imageContent });
+				//dojo.style(imagePane.domNode, { "border-style":"solid", "border-color":"black", "border-width":"1px"});
+				imagePane.placeAt(dijit.byId('setImages').domNode);
+			});
+		});
+		// Let multiple images be loading at any given time
+		for(var lni = 0; lni < 20; lni++) loadNextImage();
+	});
+}
+
+function getTagDetail(tagName, tagDetailListener){
+	if(tagName == '') return;
+	if(tagContents[tagName]){
+		tagDetailListener(tagContents[tagName]);
+		return;
+	}
+	dijit.byId('searchImages').domNode.innerHTML = '';
+		var encodedTagName = encodeURIComponent(tagName);
+		var Xhr = { url: 'tagInfo/' + encodedTagName, 
+			handleAs:'json',
+			load: function(response){
+				tagContents[tagName] = response;
+				var imageOffset = 0;
+				var loading = currentlyLoading ;
+				dojo.forEach(response, function(image){
+					imageLoadList.push(function(){
+						if(loading != currentlyLoading){
+							console.log("Cowardly not loading:", loading, currentlyLoading);
+							return;
+						}
+						
+						var imageTag = getImageContentFromImageData(image, [125,125]);
+						var imageContent = '<a href="#'+ encodedTagName +':'+image.imageNum+'" onclick="showTagImageByOffset(\'' + tagName + '\', \'' + imageOffset++ + '\'); return false;">' + imageTag + '</a>';
+						//var imagePane = new dijit.layout.ContentPane({ style:{ 'text-align':'center', 'border-width':'1px', 'border-style':'solid', 'border-color':'lightblue', height:'125px', width:'125px', 'float':'left'}, content: imageContent });
+						var imagePane = new dijit.layout.ContentPane({ style:{ 'text-align':'center', height:'127px', width:'127px', 'float':'left'}, content: imageContent });
+						//dojo.style(imagePane.domNode, { "border-style":"solid", "border-color":"black", "border-width":"1px"});
+						imagePane.placeAt(dijit.byId('searchImages').domNode);
+					
+					});
+				});
+				// Let multiple images load at a time
+				for(var lni = 0; lni < 20; lni++) loadNextImage();
+				stopWaiting();
+				//console.log(response);
+			},
+			error: function(error){
+				stopWaiting();
+				console.error("An error occured communicating with the server.", error);
+			} };
+		startWaiting();
+		dojo.xhrGet( Xhr);	
+}
+
+function showImageTag(tagName){
+	clearImageLoadList();
+	try{ dijit.byId('allTabs').removeChild(searchBody); }catch(e){ };
+	try{ dijit.byId('allTabs').addChild(searchBody); }catch(e){ };
+	try{ dijit.byId('allTabs').selectChild(searchBody); }catch(e){ };
+	dojo.byId('searchImages').innerHTML = 'Loading...';
+	searchBody.set('title', 'Search');
+	getTagDetail(tagName, function(tagDetail){
+		
+	});
+}
+
+function showSets(sets){
+	var setsParent = dijit.byId('setsParent');
+	if(setPane) setPane.destroyRecursive();
+	paneString = '';
+	dojo.forEach(sets, function(setName){
+		var encodedSetName = encodeURIComponent(setName);
+		//setName = setName.replace(/\//, '%2F');
+		var setUrl = ' <a href="#' + encodedSetName + '" onclick="showImageSet(\'' + setName + '\'); return false;">' + setName + '</a>';
+		paneString += setUrl;
+	});
+	setPane = new dijit.layout.ContentPane({content: paneString});
+	setPane.placeAt(setsParent.domNode);
+}
+
+function getDimensions(imageData, thumbDimensions){
+	var maxDimensions = thumbDimensions?thumbDimensions:[800,600];
+	
+	var dimensions = imageData.size?[ imageData.size.x, imageData.size.y]:(thumbDimensions?thumbDimensions:[320,320]); // 
+	if(dimensions[0] > maxDimensions[0]){
+		var ratio = dimensions[0] / maxDimensions[0] ;
+		dimensions[0] = maxDimensions[0] ;
+		dimensions[1] = Math.floor( dimensions[1] / ratio );
+	}
+	if(dimensions[1] > maxDimensions[1]){
+		var ratio = dimensions[1] / maxDimensions[1] ;
+		dimensions[1] = maxDimensions[1] ;
+		dimensions[0] = Math.floor( dimensions[0] / ratio );
+	}
+	return dimensions;
+}
+
+function getImageContentFromImageData(imageData, maxDimensions){
+	var dimensions = getDimensions(imageData, maxDimensions);
+	var imageContent ;
+	var thumb = maxDimensions?'/thumbs/':'';
+	if(dimensions){ 
+		imageContent = '<img onload="loadNextImage();" src="/storage/' + thumb + imageData.hash + '" height="' + dimensions[1] +'px" width="' + dimensions[0] + '" style="margin-left:auto; margin-right:auto; maxWidth:800px; maxHeight:600px"/>';
+	}else{
+		imageContent = '<img onload="loadNextImage();" src="/storage/' + thumb + imageData.hash + '" style="margin-left:auto; margin-right:auto; maxWidth:800px; maxHeight:600px"/>';
+	}
+	return imageContent;
+}
+
+function showImage(imageInfo){
+	var imageContent = getImageContentFromImageData(imageInfo);
+	showTags( imageInfo.tags);
+	showSets( imageInfo.sets);
+	getExif(imageInfo.imageNum);	
+
+	var imagePane = new dijit.layout.ContentPane({ region:"center", content: imageContent});
+	dijit.byId('previewParent').addChild(imagePane);
+	try{ dijit.byId('allTabs').removeChild(previewBody); }catch(e){ };
+	try{ dijit.byId('allTabs').addChild(previewBody); }catch(e){ };
+	dijit.byId('allTabs').selectChild("previewBody");
+}
+
+
+function getRandomImage(){
+	
+	var randomImageXhr = { url: '/randomImage', 
+		handleAs:'json',
+		load: function(response){
+			
+			showImage(response);
+		
+			stopWaiting();
+		},
+		error: function(error){
+			stopWaiting();
+			console.error("An error occured communicating with the server.", error);
+		} };
+	startWaiting();
+	dojo.xhrGet( randomImageXhr);
+
+}
+
+
+var tagSelect = false;
+var setSelect = false;
+
+function buildTagAndSetFilters(){
+	var tagStore = new dojo.data.ItemFileReadStore({
+		data: { items: tagList, identifier:"name" }		
+	});
+	tagSelect = new dijit.form.ComboBox({ style:{ 'float':'left' }, id: "tagSelect",
+		name: "tag",
+		value: "",
+		store: tagStore,
+		searchAttr: "name",
+		onChange: function(tagName){
+			showImageTag(tagName);
+		}
+		},
+	"tagSelect" );
+	
+	setStore = new dojo.data.ItemFileReadStore({
+		data: { items: setList, identifier:"name" }		
+	});
+	setSelect = new dijit.form.ComboBox({ style:{ 'float':'left' },id: "setSelect",
+		name: "set",
+		value: "",
+		store: setStore,
+		searchAttr: "name",
+		onChange: function(setName){
+			showImageSet(setName);
+		}
+		},
+		"setSelect" );
+	dojo.addClass(setSelect.domNode, "hiddenInput");
+	dojo.byId('loadingOverlay').style.display = 'none';
+}
+var searchTags = {};
+var excludeTags = {};
+
+var previewBody = false;
+var searchBody = false;
+var setBody = false;
+
+function buildMainNavigation(){
+	var mainNavigation = dijit.byId("mainNavigation");
+	if(loginData.loggedIn){
+		// Only output the logout link for now.
+		var logoutLink = new dijit.layout.ContentPane({ content:'<a href="#logout" onclick="logout(); return false;">Logout</a>'});
+		logoutLink.placeAt(mainNavigation.domNode);
+	}else{
+		//var loginLink = new dijit.layout.ContentPane({ content:'<a href="#login" onclick="login(); return false;">Login</a>'});
+		//loginLink.placeAt(mainNavigation.domNode);
+	}
+}
+
+/*
+ * 
+ 	dojo.style(userLabel.domNode, { "float":"left"});
+	userRow.addChild(userLabel);
+	loginView.addChild(userRow);
+	var userInputPane = new dijit.layout.ContentPane({ region:"center"});
+	var userInput = new dijit.form.TextBox({ name:"username", style:{ "float":"left", width:"6em"}});
+	userInput.placeAt(userInputPane.domNode);
+	userInputPane.placeAt(userRow.domNode);
+	
+ */
+function login(){
+	var loginView = new dijit.layout.BorderContainer( { region:"center", gutters:false, style:{ "margin-left":"auto", "margin-right":"auto", width:"25em", height:"10em"} });
+	var userRow = new dijit.layout.BorderContainer({ region:"top", gutters:false, style:{ height:"3em", "overflow":"hidden"} });
+	
+	var userLabel = new dijit.layout.ContentPane({ region:"leading", style:{ "text-align":"right", width:"5em", overflow:"hidden"}, content:"User:"});
+	userRow.addChild(userLabel);
+	loginView.addChild(userRow);
+	
+	var userInputPane = new dijit.layout.ContentPane( {region:"center", style:{ overflow:"hidden"}});
+	var userInput = new dijit.form.TextBox({ name:"username"});
+	userInput.placeAt(userInputPane.domNode);
+	userRow.addChild(userInputPane);
+
+	var userRow = new dijit.layout.BorderContainer({ region:"top", gutters:false, style:{ height:"3em", "overflow":"hidden"} });
+	
+	var userLabel = new dijit.layout.ContentPane({ region:"leading", style:{ "text-align":"right", width:"5em", overflow:"hidden"}, content:"Password:"});
+	userRow.addChild(userLabel);
+	loginView.addChild(userRow);
+	
+	var userInputPane = new dijit.layout.ContentPane( {region:"center", style:{ overflow:"hidden"}});
+	var userInput = new dijit.form.TextBox({ type:"password", name:"username"});
+	userInput.placeAt(userInputPane.domNode);
+	userRow.addChild(userInputPane);
+
+	var userRow = new dijit.layout.BorderContainer({ region:"top", gutters:false, style:{ height:"3em", "overflow":"hidden"} });
+	var buttonPane = new dijit.layout.ContentPane({ region:"top", style:{ "text-align":"center", overflow:"hidden"}});
+	userRow.addChild(buttonPane);
+	var loginButton = new dijit.form.Button({ label:"Login"})
+	loginButton.placeAt(buttonPane.domNode);
+	loginView.addChild(userRow);
+	loginButton.connect(loginButton, "onClick", function(){
+		loginDialog.hide();
+		loginDialog.destroyRecursive();
+	});
+	
+	var loginDialog = new dijit.Dialog({content:loginView, title:'Login'});
+	loginDialog.show();
+	loginView.layout();
 }
 
 dojo.addOnLoad(function(){
-	thumbPane = new dijit.layout.ContentPane({}, dojo.byId('thumbs'));
+	dojo.parser.parse();
 	populateTagList();
+	var chooseSets = new dijit.form.RadioButton({ id:"chooseSets", name:"chooseTagSet" });			
+	var chooseSetsPane = new dijit.layout.ContentPane({ style:{ 'float':'left'}, content:"Sets"});
+	chooseSets.placeAt(chooseSetsPane.domNode);
+	chooseSetsPane.placeAt(dojo.byId('chooseTagSet'));
+	chooseSets.connect( chooseSets, "onClick", function(status){ 
+		dojo.removeClass(setSelect.domNode, "hiddenInput");
+		dojo.addClass(tagSelect.domNode, "hiddenInput");
+	});
+	var chooseTags = new dijit.form.RadioButton({ id:"chooseTags", name:"chooseTagSet", checked:"checked" });	
+	var chooseTagsPane = new dijit.layout.ContentPane({ style:{ 'float':'left'}, content:"Tags"});
+	chooseTags.placeAt(chooseTagsPane.domNode);
+	chooseTagsPane.placeAt(dojo.byId('chooseTagSet'));
+	chooseTags.connect( chooseTags, "onClick", function(status){ 
+		dojo.removeClass(tagSelect.domNode, "hiddenInput");
+		dojo.addClass(setSelect.domNode, "hiddenInput");
+	});
+	var addButton = new dijit.form.Button({ label: "Add"}, "addButton");
+	addButton.connect(addButton, "onClick", function(){
+		if(chooseTags.get('value').length > 0){
+			addIncludedTag(chooseTags.get('value'));
+			
+		}		
+	});
+	var randomImageButton = new dijit.form.Button({ label:"Random" }, "randomImageButton");
+	randomImageButton.connect(randomImageButton, "onClick", getRandomImage);
+	searchBody = dijit.byId('searchBody');
+	setBody = dijit.byId('setBody');
+	previewBody = dijit.byId('previewBody');
+	dijit.byId('allTabs').removeChild(searchBody);
+	dijit.byId('allTabs').removeChild(setBody);
+	dijit.byId('allTabs').removeChild(previewBody);
+	
+	var exifButton  = new dijit.form.Button({ label:"Exif" });
+	var exifClosed = true;
+	dojo.style(exifButton.domNode, { 'float':'left', 'margin-top':'14px'});
+	exifButton.connect(exifButton, "onClick", function(){
+		if(exifClosed){
+			dojo.style(dijit.byId("exifParent").domNode, { width:"100%"});
+		}else{
+			dojo.style(dijit.byId("exifParent").domNode, { width:"4em"});
+		}
+		exifClosed = !exifClosed;
+		dijit.byId("previewBody").layout();
+	});
+	exifButton.placeAt(dijit.byId("exifContainer").domNode);
+	console.log("HUH?");
+	dojo.addClass(exifButton.domNode, "exifButton");
+	
+	//var registerButton = new dijit.form.Button({label:"Register to tag post and upload."}, "registerButton");
+	
+	
+	
+	// loginStatus
+	// Are we logged in? See if there is a session token stored.
+	var sessionToken = dojo.cookie('sessionToken');
+	sessionToken = 'asdklskdjhfsdf';
+	if(sessionToken){
+		// verify it
+		var verifyToken = {
+				url: '/verifyLogin',
+				handleAs: 'json',
+				content: {
+					sessionToken: sessionToken
+				},
+				load: function(response){
+					console.log("session", response);
+					buildMainNavigation();
+					//login();
+				},
+				error: function(){}
+		}
+		dojo.xhrGet( verifyToken);
+	}
+	
+	
 });
 </script>
 <style type="text/css" >
-.inputRow{
-	width:100%;
+.exifButton  {
+-moz-transform:rotate(270deg);
+-webkit-transform:rotate(270deg);
+-o-transform:rotate(270deg);
+-ms-transform:rotate(270deg);
+filter:progid:DXImageTransform.Microsoft.BasicImage(rotation=-.5);
 }
-.fieldLabel{
-	width:200px;
-	max-width:200px;
-	font-weight:bold;
-	color:orange;
+.hiddenInput {
+	display: none;
 }
-.TableContainer{
-	border:1px solid #000;
-	padding:0px;
-}
-.TableContainer .TableHeader{
-	padding:.2em;
-	background:#000;
-	color:#fff;
+.waiting {
+	cursor: progress;
 }
 </style>
-</head>
-<body class="claro" style="background:#deebda; margin-left:5em; margin-right:5em ">
-<div id="start">Loading...</div>
-<div style="float:left; height:80%; width:20%; maxWidth:20%; overflow-y:scroll; overflow-x:hidden" id="tagList" ></div>
-<div style="float:left; height:auto; width:80%">
-	<div style="float:left; width:70%" id="tagsInUse">
-		<div style="float:left; width:70%">Tags Showing</div>
-	</div>
-	<div style="float:left; width:70%" id="thumbs"></div>
+<body class="claro" style="height:100%; overflow:hidden">
+<div id="loadingOverlay" style="text-align:center; zIndex:10000; width:100%; height:100%; position:absolute; background:#fff; -ms-filter:'progid:DXImageTransform.Microsoft.Alpha(Opacity=50)'; filter: alpha(opacity=50); opacity:1.0">
+	<div style="margin-top:5em; width:100%; font-size:3em">Loading...</div>
 </div>
+<div dojoType="dijit.layout.BorderContainer" style="height:100%; background:#FFEFB8; overflow:hidden;">		
+	<div dojoType="dijit.layout.ContentPane" region="top" content="WhereEverythingIs.com, a NSFW hobby site." id="header" style="height:1em; font-size:2em; overflow:hidden">
+		Header
+	</div>
+	<div dojoType="dijit.layout.ContentPane" region="leading" style="width:15em; overflow:hidden" id="leftSide">
+		<div id="loginPane" dojoType="dijit.layout.BorderContainer" style="height:5em"  >
+		
+		</div>
+		<div id="mainNavigation" dojoType="dijit.layout.ContentPane" style="height:10em; width:100%">
+		</div>	
+		<div id="registerButton"></div>
+		<div id="randomImageButton"></div>
+			<div style="float:left; margin-top:2em;">Search by Tag or Set</div>
+			
+			<div style="clear:both" id="chooseTagSet"></div>
+			<div id="tagsControls" style="float:left; clear:both">
+			<div>
+				<div id="tagSelect"></div>
+				<!-- <div id="tagsIncludedLabel">
+				Tags included in view
+				</div>
+				<div id="tagsIncluded">
+				</div>
+				<div id="tagsExcluded">
+				</div>
+				-->
+			</div>
+		</div> 
+		<div id="setsControls" style="float:left; clear:both"><br/>
+			<div id="setSelect"></div>
+			<!-- <div id="setsIncludedLabel">
+			Sets included in view
+			</div>
+			<div id="setsIncluded">
+			</div>
+			<div id="setsExcluded">
+			</div>
+			-->
+		</div>
+	</div>
+	<div dojoType="dijit.layout.TabContainer" id="allTabs" region="center" >
+		<div dojoType="dijit.layout.BorderContainer" title="Wall" id="wallBody" >
+			<div dojoType="dijit.layout.BorderContainer" region="center"  >
+				<div id="wallParent" dojoType="dijit.layout.ContentPane" region="central" style="overflow:auto" >
+					November 19, 2011<br/>
+					Update:  Logins are nearly complete.  Wall will follow.  I need some ideas on community moderation, like if a photo is mis-tagged, how would we give the community the ability to collectively correct that?  The trouble is that voting is cumbersome to track (preventing duplicate votes requires storing everything each user voted on...yuck.)
+					<br/><br/>
+					November 12, 2011<br/>
+					Greets.  Welcome to my site.  The content here came from the now defunct amadmp.com.  I am doing my best to make it searchable to at least its previous level and better.
+					It is pretty fast in most situations.  It needs some obvious tweeks (like paging very long search results).
+					
+					I plan to work on the site off and on through the holidays, so you should see useful tools like upload and tagging very soon.
+					
+					Enjoy and have a great holiday.
+				</div>
+		</div>
+		</div>
+		<div dojoType="dijit.layout.BorderContainer" title="Contact Us" id="contactBody" >
+			<div dojoType="dijit.layout.BorderContainer" region="top" style="height:8em" >
+				<div id="contactParent" dojoType="dijit.layout.ContentPane" region="central" style="overflow:auto" >
+					Please send your comments or suggestions to greatdadstpeters AT gmail.com
+				</div>
+		</div>
+		</div>
+		<div dojoType="dijit.layout.BorderContainer" title="Image View" id="previewBody" style="display:none">
+			<div dojoType="dijit.layout.BorderContainer" region="top" style="height:8em" >
+				<div id="setsParent" dojoType="dijit.layout.ContentPane" region="leading" style="width:30%; height:100%; overflow:auto" ><div>Sets</div></div>
+				<div id="tagsParent" dojoType="dijit.layout.ContentPane" region="center" style="width:10em; height:100%; overflow:auto" ><div>Tags</div></div>
+				<div id="exifParent" dojoType="dijit.layout.BorderContainer" region="trailing" style="width:4em; height:100%; overflow:hidden" >
+					<div id="exifContainer" dojoType="dijit.layout.ContentPane" style="overflow-x:hidden; overflow-y:hidden" region="center" ><div style="float:left" id="exifButton"></div></div>
+				</div>
+			</div>				
+			<div dojoType="dijit.layout.BorderContainer" region="center" id="previewParent"  >
+			</div>
+		</div>
+		<div dojoType="dijit.layout.BorderContainer" title="Search" id="searchBody" style="display:none">
+			<div dojoType="dijit.layout.ContentPane" id="searchTags" region="top" style="overflow:auto">
+				<div dojoType="dijit.layout.ContentPane" id="includeTags" region="leading" style="overflow:auto">
+				</div>	
+			</div>
+			<div dojoType="dijit.layout.ContentPane" id="searchImages" region="center" style="overflow:auto">
+			</div>
+		</div>
+		<div dojoType="dijit.layout.BorderContainer" title="Set: #None#" gutters="false" id="setBody" style="display:none">
+			<div dojoType="dijit.layout.ContentPane" id="setImages" region="center" style="overflow:auto">
+			</div>
+		</div>
+	</div>
+</div>
+
 </body>
 </html>
+

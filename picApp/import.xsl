@@ -7,7 +7,7 @@
 		<xsl:variable name="tagName"><xsl:value-of select="@name"/></xsl:variable>
 		tags['<xsl:value-of select="$tagName"/>'.toLowerCase()] = [];
 	 	<xsl:for-each select="images/image">
-			tags['<xsl:value-of select="$tagName"/>'.toLowerCase()].push(imageHashes[<xsl:value-of select="@imageId"/>]);
+			if(imageHashes[<xsl:value-of select="@imageId"/>])	tags['<xsl:value-of select="$tagName"/>'.toLowerCase()].push(<xsl:value-of select="@imageId"/>);
 		</xsl:for-each>
 	</xsl:template>
 
@@ -44,16 +44,19 @@
 	
 	 var fs = require("fs");
 
-     var ihFile = fs.createWriteStream('imageHashes.json')
+     var ihFile = fs.createWriteStream('imageHashes.js')
      .on("open", function(){
+     		 ihFile.write("module.exports.data = ");
              ihFile.end(JSON.stringify(imageHashes, null, '\t'));
      });
-     var setFile = fs.createWriteStream('imageSets.json')
+     var setFile = fs.createWriteStream('imageSets.js')
      .on("open", function(){
+     		 setFile.write("module.exports.data = ");
              setFile.end(JSON.stringify(sets, null, '\t'));
      });
-     var tagFile = fs.createWriteStream('imageTags.json')
+     var tagFile = fs.createWriteStream('imageTags.js')
      .on("open", function(){
+     		 tagFile.write("module.exports.data = ");
              tagFile.end(JSON.stringify(tags, null, '\t'));
      });
 
