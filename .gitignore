@@ -9,3 +9,13 @@ node_modules/
 .viminfo
 .gitconfig
 .npm
+.buildpath
+.jsdtscope
+.lesshst
+imageHashes.js
+imageInfo.sh
+imageInfo.txt
+imageSets.js
+imageSizes.js
+imageTags.js
+nohup.out
