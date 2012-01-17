@@ -1,0 +1,21 @@
+<div dojoType="dijit.form.Form" id="wallForm">
+	<div id="wallContent" dojoType="dijit.layout.BorderContainer" gutters="false" style="height:15em; width:35em">
+		<div dojoType="dijit.layout.BorderContainer" region="top" gutters="false" style="height:3em" >
+			<div dojoType="dijit.layout.ContentPane" region="leading" style="width:7em; overflow:hidden" >Subject:</div>
+			<div dojoType="dijit.layout.ContentPane" region="center" >
+				<div dojoType="dijit.form.ValidationTextBox" required="true" name="wallSubject" id="wallSubject" ></div>
+			</div>
+		</div>
+		<div dojoType="dijit.layout.BorderContainer" region="top" gutters="false" style="height:8em" >
+			<div dojoType="dijit.layout.ContentPane" region="leading" style="width:7em; overflow:hidden" >Message:</div>
+			<div dojoType="dijit.layout.ContentPane" region="center" style="overflow:auto" >
+				<div dojoType="dijit.form.Textarea" style="height:100%; width:100%" data-dojo-props="rows:5" name="wallMessage" id="wallMessage" ></div>
+			</div>
+		</div>
+		<div dojoType="dijit.layout.BorderContainer" region="top" gutters="false" style="height:3em; overflow:hidden" >
+			<div dojoType="dijit.layout.ContentPane" region="center" style="text-align:center; overflow:hidden" >
+				<div dojoType="dijit.form.Button" name="wallButton" id="wallButton" >Send</div>
+			</div>
+		</div>
+	</div>
+</div>
